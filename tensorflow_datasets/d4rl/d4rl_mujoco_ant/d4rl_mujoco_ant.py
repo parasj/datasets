@@ -13,22 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""D4Rl Halfcheetah dataset from Mujoco."""
+"""D4Rl Ant dataset from Mujoco."""
 
 from tensorflow_datasets.d4rl import dataset_utils
 import tensorflow_datasets.public_api as tfds
 
 
-class D4rlMujocoHalfcheetah(tfds.core.GeneratorBasedBuilder):
-  """DatasetBuilder for halfcheetah dataset."""
+class D4rlMujocoAnt(tfds.core.GeneratorBasedBuilder):
+  """DatasetBuilder for ant dataset."""
 
-  VERSION = tfds.core.Version('1.0.1')
+  VERSION = tfds.core.Version('1.0.0')
   RELEASE_NOTES = {
-      '1.0.0':
-          'Initial release.',
-      '1.0.1':
-          'Support for episode and step metadata, and unification of the' +
-          ' reward shape accross all the configs.'
+      '1.0.0': 'Initial release.',
   }
 
   BUILDER_CONFIGS = dataset_utils.MUJOCO_BUILDER_CONFIGS
@@ -37,10 +33,10 @@ class D4rlMujocoHalfcheetah(tfds.core.GeneratorBasedBuilder):
     """Returns the dataset metadata."""
     features_dict = dataset_utils.get_mujoco_features_dict(
         builder_config=self.builder_config,
-        obs_len=17,
-        action_len=6,
-        qpos_len=9,
-        qvel_len=9)
+        obs_len=111,
+        action_len=8,
+        qpos_len=15,
+        qvel_len=14)
     return tfds.core.DatasetInfo(
         builder=self,
         description=dataset_utils.description(),
@@ -53,7 +49,7 @@ class D4rlMujocoHalfcheetah(tfds.core.GeneratorBasedBuilder):
   def _split_generators(self, dl_manager: tfds.download.DownloadManager):
     """Returns SplitGenerators."""
     ds_dir = self.builder_config.dataset_dir
-    ds_name = 'halfcheetah_'+self.builder_config.file_suffix + '.hdf5'
+    ds_name = 'ant_'+self.builder_config.file_suffix + '.hdf5'
     path = dl_manager.download_and_extract({
         'file_path':
             'http://rail.eecs.berkeley.edu/datasets/offline_rl/' + ds_dir +

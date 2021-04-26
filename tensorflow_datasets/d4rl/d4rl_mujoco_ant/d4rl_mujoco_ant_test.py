@@ -13,42 +13,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""D4Rl Halfcheetah dataset from Mujoco."""
+"""D4Rl Ant dataset from Mujoco."""
 
-from tensorflow_datasets.d4rl.d4rl_mujoco_halfcheetah import d4rl_mujoco_halfcheetah
+from tensorflow_datasets.d4rl.d4rl_mujoco_ant import d4rl_mujoco_ant
 import tensorflow_datasets.public_api as tfds
 
 
-class D4rlMujocoHalfcheetahTest(tfds.testing.DatasetBuilderTestCase):
-  """Tests for halfcheetah datasets."""
-  DATASET_CLASS = d4rl_mujoco_halfcheetah.D4rlMujocoHalfcheetah
+class D4rlMujocoAntTest(tfds.testing.DatasetBuilderTestCase):
+  """Tests for ant datasets."""
+  DATASET_CLASS = d4rl_mujoco_ant.D4rlMujocoAnt
   SPLITS = {
       'train': 2,  # Number of fake train example
   }
   SKIP_TF1_GRAPH_MODE = True
 
-  DL_EXTRACT_RESULT = {'file_path': 'halfcheetah_medium.hdf5'}
-  DL_DOWNLOAD_RESULT = {'file_path': 'halfcheetah_medium.hdf5'}
+  DL_EXTRACT_RESULT = {'file_path': 'ant_medium.hdf5'}
+  DL_DOWNLOAD_RESULT = {'file_path': 'ant_medium.hdf5'}
 
   BUILDER_CONFIG_NAMES_TO_TEST = ['v0-medium']
 
 
-class D4rlMujocoHalfcheetahInfosTest(tfds.testing.DatasetBuilderTestCase):
-  """Tests for halfcheetah datasets with step metadata."""
-  DATASET_CLASS = d4rl_mujoco_halfcheetah.D4rlMujocoHalfcheetah
+class D4rlMujocoAntInfosTest(tfds.testing.DatasetBuilderTestCase):
+  """Tests for ant datasets with step metadata."""
+  DATASET_CLASS = d4rl_mujoco_ant.D4rlMujocoAnt
   SPLITS = {
       'train': 2,  # Number of fake train example
   }
   SKIP_TF1_GRAPH_MODE = True
 
-  DL_EXTRACT_RESULT = {'file_path': 'halfcheetah_random-v1.hdf5'}
-  DL_DOWNLOAD_RESULT = {'file_path': 'halfcheetah_random-v1.hdf5'}
+  DL_EXTRACT_RESULT = {'file_path': 'ant_random-v1.hdf5'}
+  DL_DOWNLOAD_RESULT = {'file_path': 'ant_random-v1.hdf5'}
 
   BUILDER_CONFIG_NAMES_TO_TEST = ['v1-random']
 
 
-class D4rlMujocoHalfcheetahReplayTest(tfds.testing.DatasetBuilderTestCase):
-  """Tests for halfcheetah datasets with replay.
+class D4rlMujocoAntReplayTest(tfds.testing.DatasetBuilderTestCase):
+  """Tests for ant datasets with replay.
 
   These datasets have the following special features:
     * Contain step metadata.
@@ -57,28 +57,28 @@ class D4rlMujocoHalfcheetahReplayTest(tfds.testing.DatasetBuilderTestCase):
     * Rewards are stored with shape (1,) instead of scalar
 
   """
-  DATASET_CLASS = d4rl_mujoco_halfcheetah.D4rlMujocoHalfcheetah
+  DATASET_CLASS = d4rl_mujoco_ant.D4rlMujocoAnt
   SPLITS = {
       'train': 2,  # Number of fake train example
   }
   SKIP_TF1_GRAPH_MODE = True
 
-  DL_EXTRACT_RESULT = {'file_path': 'halfcheetah_medium_replay-v1.hdf5'}
-  DL_DOWNLOAD_RESULT = {'file_path': 'halfcheetah_medium_replay-v1.hdf5'}
+  DL_EXTRACT_RESULT = {'file_path': 'ant_medium_replay-v1.hdf5'}
+  DL_DOWNLOAD_RESULT = {'file_path': 'ant_medium_replay-v1.hdf5'}
 
   BUILDER_CONFIG_NAMES_TO_TEST = ['v1-medium-replay']
 
 
-class D4rlMujocoHalfcheetahMetadataTest(tfds.testing.DatasetBuilderTestCase):
-  """Tests for halfcheetah datasets with all the metadata fields."""
-  DATASET_CLASS = d4rl_mujoco_halfcheetah.D4rlMujocoHalfcheetah
+class D4rlMujocoAntMetadataTest(tfds.testing.DatasetBuilderTestCase):
+  """Tests for ant datasets with all the metadata fields."""
+  DATASET_CLASS = d4rl_mujoco_ant.D4rlMujocoAnt
   SPLITS = {
       'train': 2,  # Number of fake train example
   }
   SKIP_TF1_GRAPH_MODE = True
 
-  DL_EXTRACT_RESULT = {'file_path': 'halfcheetah_medium-v2.hdf5'}
-  DL_DOWNLOAD_RESULT = {'file_path': 'halfcheetah_medium-v2.hdf5'}
+  DL_EXTRACT_RESULT = {'file_path': 'ant_medium-v2.hdf5'}
+  DL_DOWNLOAD_RESULT = {'file_path': 'ant_medium-v2.hdf5'}
 
   BUILDER_CONFIG_NAMES_TO_TEST = ['v2-medium']
 

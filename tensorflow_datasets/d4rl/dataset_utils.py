@@ -14,11 +14,230 @@
 # limitations under the License.
 
 """Utils to generate builders for D4RL datasets."""
-from typing import Any, Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict
 
+import dataclasses
 import h5py
 import numpy as np
+import tensorflow.compat.v2 as tf
 from tensorflow.io import gfile
+import tensorflow_datasets.public_api as tfds
+
+_DESCRIPTION = """
+D4RL is an open-source benchmark for offline reinforcement learning. It provides
+standardized environments and datasets for training and benchmarking algorithms.
+"""
+
+_CITATION = """\
+@misc{fu2020d4rl,
+    title={D4RL: Datasets for Deep Data-Driven Reinforcement Learning},
+    author={Justin Fu and Aviral Kumar and Ofir Nachum and George Tucker and Sergey Levine},
+    year={2020},
+    eprint={2004.07219},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG}
+}
+"""
+
+
+@dataclasses.dataclass
+class MujocoDatasetConfig(tfds.core.BuilderConfig):
+  dataset_dir: str = 'gym_mujoco'
+  file_suffix: str = 'medium'
+
+
+# pytype: disable=wrong-keyword-args
+MUJOCO_BUILDER_CONFIGS = [
+    MujocoDatasetConfig(
+        name='v0-expert',
+        dataset_dir='gym_mujoco',
+        file_suffix='expert'),
+    MujocoDatasetConfig(
+        name='v0-medium',
+        dataset_dir='gym_mujoco',
+        file_suffix='medium'),
+    MujocoDatasetConfig(
+        name='v0-medium-expert',
+        dataset_dir='gym_mujoco',
+        file_suffix='medium_expert'),
+    MujocoDatasetConfig(
+        name='v0-mixed',
+        dataset_dir='gym_mujoco',
+        file_suffix='mixed'),
+    MujocoDatasetConfig(
+        name='v0-random',
+        dataset_dir='gym_mujoco',
+        file_suffix='random'),
+    MujocoDatasetConfig(
+        name='v1-expert',
+        dataset_dir='gym_mujoco_v1',
+        file_suffix='expert-v1'),
+    MujocoDatasetConfig(
+        name='v1-medium',
+        dataset_dir='gym_mujoco_v1',
+        file_suffix='medium-v1'),
+    MujocoDatasetConfig(
+        name='v1-medium-expert',
+        dataset_dir='gym_mujoco_v1',
+        file_suffix='medium_expert-v1'),
+    MujocoDatasetConfig(
+        name='v1-medium-replay',
+        dataset_dir='gym_mujoco_v1',
+        file_suffix='medium_replay-v1'),
+    MujocoDatasetConfig(
+        name='v1-full-replay',
+        dataset_dir='gym_mujoco_v1',
+        file_suffix='full_replay-v1'),
+    MujocoDatasetConfig(
+        name='v1-random',
+        dataset_dir='gym_mujoco_v1',
+        file_suffix='random-v1'),
+    MujocoDatasetConfig(
+        name='v2-expert',
+        dataset_dir='gym_mujoco_v2',
+        file_suffix='expert-v2'),
+    MujocoDatasetConfig(
+        name='v2-full-replay',
+        dataset_dir='gym_mujoco_v2',
+        file_suffix='full_replay-v2'),
+    MujocoDatasetConfig(
+        name='v2-medium',
+        dataset_dir='gym_mujoco_v2',
+        file_suffix='medium-v2'),
+    MujocoDatasetConfig(
+        name='v2-medium-expert',
+        dataset_dir='gym_mujoco_v2',
+        file_suffix='medium_expert-v2'),
+    MujocoDatasetConfig(
+        name='v2-medium-replay',
+        dataset_dir='gym_mujoco_v2',
+        file_suffix='medium_replay-v2'),
+    MujocoDatasetConfig(
+        name='v2-random',
+        dataset_dir='gym_mujoco_v2',
+        file_suffix='random-v2'),
+]
+
+
+def _mujoco_replay_datasets():
+  """Set of Mujoco datasets with replay."""
+  return {
+      'v1-medium-replay', 'v1-full-replay', 'v2-medium-replay', 'v2-full-replay'
+  }
+
+
+def _mujoco_full_metadata_datasets():
+  """Set of Mujoco datasets that contain all of the metadata fields."""
+  return {'v1-expert', 'v2-expert', 'v1-medium', 'v2-medium'}
+
+
+def _mujoco_float_type(config_name: str):
+  """Given a config name, returns the float type used in the dataset."""
+  if config_name in _mujoco_replay_datasets():
+    return tf.float64
+  else:
+    return tf.float32
+
+
+def get_mujoco_features_dict(
+    builder_config: MujocoDatasetConfig, obs_len: int, action_len: int,
+    qpos_len: int, qvel_len: int) -> Dict[str, tfds.features.FeatureConnector]:
+  """Builds the features dict of a Mujoco dataset.
+
+  Args:
+    builder_config: config of the Mujoco dataset.
+    obs_len: first dimension of the obsercations.
+    action_len: first dimension of the actions.
+    qpos_len: first dimension of the infos/qpos field (ignored if the dataset
+      does not include step metadata).
+    qvel_len: first dimension of the infos/qvel field (ignored if the dataset
+      does not include step metadata).
+
+  Returns:
+    Dictionary with the features of this dataset.
+  """
+
+  float_type = _mujoco_float_type(builder_config.name)
+
+  steps_dict = {
+      'observation': tfds.features.Tensor(shape=(obs_len,), dtype=float_type),
+      'action': tfds.features.Tensor(shape=(action_len,), dtype=float_type),
+      'reward': float_type,
+      'is_terminal': tf.bool,
+      'is_first': tf.bool,
+      'discount': float_type,
+  }
+  # All except for v0 datasets contain step metadata
+  if builder_config.dataset_dir != 'gym_mujoco':
+    steps_dict['infos'] = {
+        'action_log_probs': float_type,
+        'qpos': tfds.features.Tensor(shape=(qpos_len,), dtype=float_type),
+        'qvel': tfds.features.Tensor(shape=(qvel_len,), dtype=float_type),
+    }
+
+  episode_metadata = {}
+  # Replay datasets contain only two fields of the metadata.
+  if builder_config.name in _mujoco_replay_datasets():
+    episode_metadata = {
+        'algorithm': tf.string,
+        'iteration': tf.int32,
+    }
+  if builder_config.name in _mujoco_full_metadata_datasets():
+    episode_metadata = {
+        'algorithm': tf.string,
+        'iteration': tf.int32,
+        'policy': {
+            'fc0': {
+                'bias':
+                    tfds.features.Tensor(shape=(256,), dtype=float_type),
+                'weight':
+                    tfds.features.Tensor(
+                        shape=(256, obs_len), dtype=float_type),
+            },
+            'fc1': {
+                'bias':
+                    tfds.features.Tensor(shape=(256,), dtype=float_type),
+                'weight':
+                    tfds.features.Tensor(shape=(256, 256), dtype=float_type),
+            },
+            'last_fc': {
+                'bias':
+                    tfds.features.Tensor(shape=(action_len,), dtype=float_type),
+                'weight':
+                    tfds.features.Tensor(
+                        shape=(action_len, 256), dtype=float_type),
+            },
+            'last_fc_log_std': {
+                'bias':
+                    tfds.features.Tensor(shape=(action_len,), dtype=float_type),
+                'weight':
+                    tfds.features.Tensor(
+                        shape=(action_len, 256), dtype=float_type),
+            },
+            'nonlinearity': tf.string,
+            'output_distribution': tf.string,
+        },
+    }
+
+  features_dict = {
+      'steps': tfds.features.Dataset(steps_dict),
+  }
+  if episode_metadata:
+    features_dict.update(episode_metadata)
+
+  return features_dict
+
+
+def description():
+  return _DESCRIPTION
+
+
+def citation():
+  return _CITATION
+
+
+def url():
+  return 'https://sites.google.com/view/d4rl/home'
 
 
 def generate_examples(file_path: str):
@@ -44,8 +263,18 @@ def generate_examples(file_path: str):
   # is_first corresponds to the done flag delayed by one step.
   dataset_dict['is_first'] = [True] + done[:-1]
 
-  # TODO(sabela): Add extra keys for metadata (qpos, qval, goal) that is only
-  # present in some datasets.
+  # Get step metadata
+  infos_dict = {}
+  if 'infos/qpos' in dataset_dict.keys():
+    infos_dict = {
+        'qpos': dataset_dict['infos/qpos'],
+        'qvel': dataset_dict['infos/qvel'],
+        'action_log_probs': dataset_dict['infos/action_log_probs']
+    }
+  # Flatten reward
+  dataset_dict['rewards'] = np.squeeze(dataset_dict['rewards'])
+
+  episode_metadata = _get_episode_metadata(dataset_dict)
   dataset_dict = {
       'observation': dataset_dict['observations'],
       'action': dataset_dict['actions'],
@@ -54,23 +283,69 @@ def generate_examples(file_path: str):
       'is_terminal': dataset_dict['terminals'],
       'is_first': dataset_dict['is_first'],
   }
+  if infos_dict:
+    dataset_dict['infos'] = infos_dict
   num_steps = len(dataset_dict['is_first'])
   prev = 0
   counter = 0
   for pos in range(num_steps):
     if dataset_dict['is_first'][pos] and pos > prev:
-      yield counter, _get_episode(dataset_dict, prev, pos)
+      yield counter, _get_episode(dataset_dict, episode_metadata, prev, pos)
       prev = pos
       counter += 1
   if prev < num_steps:
-    yield counter, _get_episode(dataset_dict, prev, num_steps)
+    yield counter, _get_episode(dataset_dict, episode_metadata, prev, num_steps)
 
 
-def _get_episode(steps: Dict[str, Any], begin: int, end: int) -> Dict[str, Any]:
+def _get_episode_metadata(dataset: Dict[str, Any]) -> Dict[str, Any]:
+  """Generate a metadata dictionary using flattened metadata keys.
+
+  Args:
+    dataset: dictionary containing the dataset keys and values. Keys are
+      flatened.
+
+  Returns:
+    Nested dictionary with the episode metadata.
+
+  If the dataset contains:
+  {
+    'metadata/v1/v2': 1,
+    'metadata/v3': 2,
+  }
+  Returns
+  {
+    'v1':{
+      'v2': 1,
+    }
+    'v3': 2,
+  }
+  It assumes that the flattened metadata keys are well-formed.
+  """
+  episode_metadata = {}
+  for k in dataset.keys():
+    if 'metadata/' not in k:
+      continue
+    keys = k.split('/')[1:]
+    nested_dict = episode_metadata
+    leaf_value = dataset[k]
+    for index, nested_key in enumerate(keys):
+      if index == (len(keys) - 1):
+        nested_dict[nested_key] = leaf_value
+      else:
+        if nested_key not in nested_dict:
+          nested_dict[nested_key] = {}
+        nested_dict = nested_dict[nested_key]
+
+  return episode_metadata
+
+
+def _get_episode(steps: Dict[str, Any], episode_metadata: Dict[str, Any],
+                 begin: int, end: int) -> Dict[str, Any]:
   """Builds a full episode dict.
 
   Args:
       steps: a dict with all steps in a dataset
+      episode_metadata: dict with the episode metadata
       begin: defines a starting position of an episode
       end: defines an ending position of an episode
 
@@ -79,12 +354,14 @@ def _get_episode(steps: Dict[str, Any], begin: int, end: int) -> Dict[str, Any]:
   """
   # It's an initial step if the episode is empty.
   episode = {}
-  episode['is_first'] = steps['is_first'][begin:end]
-  episode['observation'] = steps['observation'][begin:end]
-  episode['action'] = steps['action'][begin:end]
-  episode['reward'] = steps['reward'][begin:end]
-  episode['discount'] = steps['discount'][begin:end]
+  for k in ['is_first', 'observation', 'action', 'reward', 'discount']:
+    episode[k] = steps[k][begin:end]
   episode['is_terminal'] = [False] * (end - begin)
+  if 'infos' in steps.keys():
+    episode['infos'] = {}
+    for k in steps['infos'].keys():
+      episode['infos'][k] = steps['infos'][k][begin:end]
+
   if steps['is_terminal'][end - 1]:
     # If the step is terminal, then we propagate the information to a next
     # state. This matches the definition in RLDS. See types.py.
@@ -100,58 +377,14 @@ def _get_episode(steps: Dict[str, Any], begin: int, end: int) -> Dict[str, Any]:
     episode['discount'] = np.array(
         np.concatenate((episode['discount'], [0.0])), dtype=np.float32)
     episode['is_terminal'] = np.concatenate((episode['is_terminal'], [True]))
-  return {'steps': _unpack_steps(episode)}
-
-
-def _get_nested_field(data: Union[Dict[str, Any], Tuple[Any], List[Any]],
-                      index: int) -> Any:
-  """Gets nested data and returns element at index respecting the shape.
-
-  It assumes that the most leaf type is a list.
-
-  If the input data is, for example:
-  data = {
-    'field_1': {
-        'nested': [1,2,3],
-    },
-    'field_2': [4, 5, 6],
-  }
-  index = 1
-  The output is:
-  {
-    'field_1':{
-      'nested': 2,
-    },
-    'field_2': 5,
-  }
-
-  Args:
-    data: data with nested shape, where the most inner type is a list.
-    index: index in the list to construct the returned element.
-
-  Returns:
-    Element i of data respecting the nested shape.
-
-  Raises:
-    ValueError if the input data type is not dict, tuple, list or np.ndarray.
-  """
-  if isinstance(data, list) or isinstance(data, np.ndarray):
-    return data[index]
-  if isinstance(data, dict):
-    return {k: _get_nested_field(data[k], index) for k in data}
-  if isinstance(data, tuple):
-    return (_get_nested_field(data[k], index) for k in data)
-  raise ValueError(f'Data has to be list, dict or tuple and it is {type(data)}')
-
-
-def _unpack_steps(steps: Dict[str, List[Any]]) -> Iterable[Dict[str, Any]]:
-  """Gets a step represented as a dict[nested_list] and returns list[dict]."""
-  length = len(steps['is_first'])
-  for i in range(length):
-    step = {}
-    for k in steps:
-      step[k] = _get_nested_field(steps[k], i)
-    yield step
+    if 'infos' in steps.keys():
+      for k in steps['infos'].keys():
+        episode['infos'][k] = np.concatenate(
+            (episode['infos'][k], [np.zeros_like(steps['infos'][k][0])]))
+  full_episode = {'steps': episode}
+  if episode_metadata:
+    full_episode.update(episode_metadata)
+  return full_episode
 
 
 def _get_dataset_keys(h5file):
