@@ -47,7 +47,7 @@ A benchmark corpus to be used for measuring progress in statistical language \
 modeling. This has almost one billion words in the training data.
 """
 
-_DOWNLOAD_URL = ("http://www.statmt.org/lm-benchmark/"
+_DOWNLOAD_URL = ("https://people.eecs.berkeley.edu/~paras/datasets/mingpt/"
                  "1-billion-word-language-modeling-benchmark-r13output.tar.gz")
 _TOP_LEVEL_DIR = "1-billion-word-language-modeling-benchmark-r13output"
 _TRAIN_FILE_FORMAT = os.path.join(_TOP_LEVEL_DIR,
